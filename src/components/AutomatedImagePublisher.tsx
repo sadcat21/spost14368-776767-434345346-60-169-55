@@ -415,13 +415,14 @@ export function AutomatedImagePublisher() {
 
         if (editResponse.error) {
           console.warn('Gemini image editing failed, using original image:', editResponse.error);
+          editedImage = imageSource; // استخدام الصورة الأصلية
           updateStep('image_editing', { 
             status: 'completed', 
             endTime: Date.now(),
             details: `تم تخطي تعديل الصورة (غير متاح في هذه المنطقة) - سيتم استخدام الصورة الأصلية`
           });
         } else {
-          editedImage = editResponse.data.editedImage;
+          editedImage = editResponse.data.editedImage || imageSource;
           const isFallback = editResponse.data.fallback;
           
           // حفظ نتيجة التعديل
@@ -525,8 +526,11 @@ export function AutomatedImagePublisher() {
       updateStep('facebook_publish', { status: 'running', startTime: Date.now() });
       
       try {
+        // التأكد من وجود صورة للنشر (أصلية أو معدلة)
+        const imageToPublish = editedImage || imageSource;
+        
         // Download image and convert to File
-        const response = await fetch(editedImage);
+        const response = await fetch(imageToPublish);
         const blob = await response.blob();
         const imageFile = new File([blob], `edited-image-${Date.now()}.jpg`, { type: blob.type });
         
