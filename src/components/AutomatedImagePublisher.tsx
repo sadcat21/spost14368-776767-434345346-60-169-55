@@ -399,31 +399,59 @@ export function AutomatedImagePublisher() {
         details: `✅ تم إنشاء برومبت تعديل متطور (${editPrompt.length} حرف)`
       });
 
-      // Step 4: Edit image with fallback mechanism
+      // Step 4: Edit image using external API
       updateStep('image_editing', { status: 'running', startTime: Date.now() });
       
       let editedImage = imageSource; // Default to original image
       
       try {
-        const editResponse = await supabase.functions.invoke('gemini-image-editing', {
-          body: {
-            originalImage: imageSource,
-            editPrompt,
-            style: 'marketing_professional'
+        // رفع الصورة إلى imgbb
+        const uploadToImgBB = async (base64Data: string): Promise<string> => {
+          const formData = new FormData();
+          formData.append('key', 'c9aeeb2c2e029f20a23564c192fd5764');
+          formData.append('image', base64Data);
+
+          const response = await fetch('https://api.imgbb.com/1/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          const data = await response.json();
+          
+          if (data.success) {
+            return data.data.url;
+          } else {
+            throw new Error(data.error?.message || 'فشل في رفع الصورة');
           }
+        };
+
+        // استدعاء API تعديل الصور الخارجي
+        updateStep('image_editing', { 
+          details: 'جاري تعديل الصورة باستخدام API الخارجي...' 
         });
 
-        if (editResponse.error) {
-          console.warn('Gemini image editing failed, using original image:', editResponse.error);
-          editedImage = imageSource; // استخدام الصورة الأصلية
+        const editResponse = await fetch('https://image-editor-api.4kallaoui23.workers.dev/api/edit-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            imageUrl: imageSource,
+            prompt: editPrompt,
+            style: 'realistic'
+          })
+        });
+
+        const editResult = await editResponse.json();
+
+        if (editResult.success) {
+          // رفع الصورة المعدلة إلى imgbb
           updateStep('image_editing', { 
-            status: 'completed', 
-            endTime: Date.now(),
-            details: `تم تخطي تعديل الصورة (غير متاح في هذه المنطقة) - سيتم استخدام الصورة الأصلية`
+            details: 'جاري رفع الصورة المعدلة...' 
           });
-        } else {
-          editedImage = editResponse.data.editedImage || imageSource;
-          const isFallback = editResponse.data.fallback;
+          
+          const uploadedUrl = await uploadToImgBB(editResult.imageData);
+          editedImage = uploadedUrl;
           
           // حفظ نتيجة التعديل
           setGeneratedContent(prev => ({
@@ -431,9 +459,9 @@ export function AutomatedImagePublisher() {
             stepResults: {
               ...prev?.stepResults,
               image_editing: {
-                data: editResponse.data,
-                summary: isFallback ? 'تم استخدام الصورة الأصلية' : 'تم تعديل الصورة بنجاح',
-                preview: editedImage
+                data: { editedImage: uploadedUrl, success: true },
+                summary: 'تم تعديل الصورة ورفعها بنجاح',
+                preview: uploadedUrl
               }
             }
           }));
@@ -441,17 +469,31 @@ export function AutomatedImagePublisher() {
           updateStep('image_editing', { 
             status: 'completed', 
             endTime: Date.now(),
-            details: isFallback 
-              ? `⚠️ تم استخدام الصورة الأصلية (تعديل الصور غير متاح في هذه المنطقة)`
-              : `✅ تم تعديل الصورة بنجاح - أنتجت صورة محسنة للتسويق`
+            details: `✅ تم تعديل الصورة بنجاح باستخدام API الخارجي ورفعها على imgbb`
           });
+        } else {
+          throw new Error(editResult.error || 'فشل في تعديل الصورة');
         }
       } catch (error) {
-        console.warn('Image editing service unavailable, proceeding with original image:', error);
+        console.warn('External image editing failed, using original image:', error);
+        
+        // حفظ نتيجة الفشل
+        setGeneratedContent(prev => ({
+          ...prev!,
+          stepResults: {
+            ...prev?.stepResults,
+            image_editing: {
+              data: { editedImage: imageSource, fallback: true },
+              summary: 'تم استخدام الصورة الأصلية',
+              preview: imageSource
+            }
+          }
+        }));
+        
         updateStep('image_editing', { 
           status: 'completed', 
           endTime: Date.now(),
-          details: `تم تخطي تعديل الصورة (الخدمة غير متاحة) - سيتم استخدام الصورة الأصلية`
+          details: `⚠️ فشل في تعديل الصورة - سيتم استخدام الصورة الأصلية: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`
         });
       }
 
