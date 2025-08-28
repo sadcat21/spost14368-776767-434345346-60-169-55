@@ -111,15 +111,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "automation_subscriptions_facebook_user_id_fkey"
-            columns: ["facebook_user_id"]
-            isOneToOne: false
-            referencedRelation: "facebook_users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       facebook_pages: {
         Row: {
@@ -128,13 +120,11 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
-          last_activity: string | null
           page_id: string
           page_name: string
           picture_url: string | null
           updated_at: string
           user_id: string
-          webhook_status: string | null
         }
         Insert: {
           access_token: string
@@ -142,13 +132,11 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
-          last_activity?: string | null
           page_id: string
           page_name: string
           picture_url?: string | null
           updated_at?: string
           user_id?: string
-          webhook_status?: string | null
         }
         Update: {
           access_token?: string
@@ -156,13 +144,11 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
-          last_activity?: string | null
           page_id?: string
           page_name?: string
           picture_url?: string | null
           updated_at?: string
           user_id?: string
-          webhook_status?: string | null
         }
         Relationships: []
       }
@@ -325,156 +311,9 @@ export type Database = {
         Args: { p_custom_page_token: string }
         Returns: boolean
       }
-      cleanup_old_webhook_logs: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      create_automation_subscription: {
-        Args: {
-          p_content_type?: string
-          p_execution_times?: Json
-          p_page_access_token: string
-          p_page_id: string
-          p_page_name: string
-          p_posts_per_day?: number
-          p_user_id: string
-        }
-        Returns: string
-      }
-      deactivate_expired_subscriptions: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
       deduct_credits: {
         Args: { p_credits_to_deduct?: number; p_custom_page_token: string }
         Returns: boolean
-      }
-      extend_subscription: {
-        Args: { p_days?: number; p_user_id: string }
-        Returns: boolean
-      }
-      get_automation_schedule: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          content_type: string
-          credits_remaining: number
-          custom_page_token: string
-          execution_times: Json
-          id: string
-          page_id: string
-          page_name: string
-          posts_per_day: number
-          user_id: string
-        }[]
-      }
-      get_automation_status: {
-        Args: { p_custom_page_token: string }
-        Returns: {
-          active: boolean
-          credits_remaining: number
-          credits_total: number
-          posts_per_day: number
-          subscription_end: string
-        }[]
-      }
-      get_page_analytics: {
-        Args: { p_days?: number; p_page_id: string }
-        Returns: {
-          auto_replies_count: number
-          comments_count: number
-          error_count: number
-          messages_count: number
-          pending_count: number
-          success_count: number
-          total_events: number
-        }[]
-      }
-      get_page_events: {
-        Args: { p_limit?: number; p_offset?: number; p_page_id: string }
-        Returns: {
-          auto_replied: boolean
-          content: string
-          created_at: string
-          event_type: string
-          id: string
-          response_content: string
-          status: string
-          user_name: string
-        }[]
-      }
-      get_recent_webhook_activity: {
-        Args: { p_hours?: number; p_page_id: string }
-        Returns: {
-          auto_replied: boolean
-          content: string
-          created_at: string
-          event_id: string
-          event_type: string
-          status: string
-          user_name: string
-        }[]
-      }
-      get_user_dashboard_stats: {
-        Args: { p_user_id: string }
-        Returns: {
-          active_subscriptions: number
-          total_credits: number
-          total_events: number
-          total_pages: number
-          used_credits: number
-          webhook_success_rate: number
-        }[]
-      }
-      get_user_facebook_pages: {
-        Args: { p_user_id: string }
-        Returns: {
-          category: string
-          id: string
-          is_active: boolean
-          last_activity: string
-          page_id: string
-          page_name: string
-          picture_url: string
-          webhook_status: string
-        }[]
-      }
-      get_user_subscription_status: {
-        Args: { p_user_id: string }
-        Returns: {
-          has_active_subscription: boolean
-          pages_count: number
-          remaining_credits: number
-          subscription_end: string
-          total_credits: number
-        }[]
-      }
-      manage_user_credits: {
-        Args: { p_action: string; p_amount?: number; p_user_id: string }
-        Returns: {
-          message: string
-          new_remaining: number
-          new_total: number
-          success: boolean
-        }[]
-      }
-      reset_daily_credits: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      update_webhook_status: {
-        Args: { p_page_id: string; p_status: string }
-        Returns: boolean
-      }
-      upsert_facebook_page: {
-        Args: {
-          p_access_token: string
-          p_category?: string
-          p_page_id: string
-          p_page_name: string
-          p_picture_url?: string
-          p_user_id: string
-        }
-        Returns: string
       }
     }
     Enums: {
