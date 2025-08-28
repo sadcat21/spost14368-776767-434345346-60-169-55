@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Loader2, Wand2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 interface GeminiImageEditorProps {
   imageUrl: string;
@@ -17,10 +16,14 @@ interface GeminiImageEditorProps {
 const imageStyles = [
   { value: 'realistic', label: 'واقعية' },
   { value: 'cartoon', label: 'كرتونية' },
-  { value: 'professional', label: 'احترافية' },
-  { value: 'artistic', label: 'فنية' },
+  { value: 'anime', label: 'أنيمي' },
+  { value: 'oil-painting', label: 'رسم زيتي' },
+  { value: 'watercolor', label: 'ألوان مائية' },
+  { value: 'sketch', label: 'رسم تخطيطي' },
+  { value: 'digital-art', label: 'فن رقمي' },
+  { value: 'vintage', label: 'كلاسيكية' },
   { value: 'modern', label: 'عصرية' },
-  { value: 'vintage', label: 'كلاسيكية' }
+  { value: 'minimalist', label: 'مبسط' }
 ];
 
 export const GeminiImageEditor: React.FC<GeminiImageEditorProps> = ({
@@ -29,39 +32,36 @@ export const GeminiImageEditor: React.FC<GeminiImageEditorProps> = ({
   onError
 }) => {
   const [prompt, setPrompt] = useState('');
-  const [imageStyle, setImageStyle] = useState('professional');
+  const [imageStyle, setImageStyle] = useState('realistic');
   const [isEditing, setIsEditing] = useState(false);
   const { toast } = useToast();
 
-  // ترجمة النص العربي إلى الإنجليزية
-  const translateToEnglish = async (arabicText: string): Promise<string> => {
+  // رفع الصورة إلى imgbb
+  const uploadToImgBB = async (base64Data: string): Promise<string> => {
     try {
-      const { data, error } = await supabase.functions.invoke('gemini-proxy', {
-        body: {
-          contents: [{
-            parts: [{
-              text: `Translate this Arabic text to English for image editing: "${arabicText}". Only return the English translation.`
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 200
-          }
-        }
+      const formData = new FormData();
+      formData.append('key', 'c9aeeb2c2e029f20a23564c192fd5764');
+      formData.append('image', base64Data);
+
+      const response = await fetch('https://api.imgbb.com/1/upload', {
+        method: 'POST',
+        body: formData
       });
 
-      if (error) throw error;
+      const data = await response.json();
       
-      const translatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || arabicText;
-      console.log('🔄 ترجمة النص:', { original: arabicText, translated: translatedText });
-      return translatedText;
+      if (data.success) {
+        return data.data.url;
+      } else {
+        throw new Error(data.error?.message || 'فشل في رفع الصورة');
+      }
     } catch (error) {
-      console.warn('⚠️ فشل في الترجمة، استخدام النص الأصلي:', error);
-      return arabicText;
+      console.error('❌ خطأ في رفع الصورة:', error);
+      throw new Error('فشل في رفع الصورة إلى imgbb');
     }
   };
 
-  // تعديل الصورة باستخدام Gemini
+  // تعديل الصورة باستخدام API الخارجي
   const editImage = async () => {
     if (!prompt.trim()) {
       toast({ title: 'خطأ', description: 'يرجى إدخال وصف التعديل المطلوب', variant: 'destructive' });
@@ -71,63 +71,38 @@ export const GeminiImageEditor: React.FC<GeminiImageEditorProps> = ({
     setIsEditing(true);
     
     try {
-      // ترجمة النص إلى الإنجليزية
-      const englishPrompt = await translateToEnglish(prompt);
+      console.log('🎨 بدء تعديل الصورة باستخدام API الخارجي...');
       
-      // إنشاء prompt محسن مع النمط
-      const enhancedPrompt = `Edit this image: ${englishPrompt}. Style: ${imageStyle}. Make it professional and high quality.`;
-      
-      console.log('🎨 بدء تعديل الصورة باستخدام Gemini...');
-      
-      // تحميل الصورة وتحويلها إلى base64
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]); // إزالة data:image/...;base64,
-        };
-        reader.readAsDataURL(blob);
+      // استدعاء API تعديل الصور الخارجي
+      const editResponse = await fetch('https://image-editor-api.4kallaoui23.workers.dev/api/edit-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          imageUrl: imageUrl,
+          prompt: prompt,
+          style: imageStyle
+        })
       });
 
-      // استدعاء خدمة تعديل الصور
-      const { data: editResult, error: editError } = await supabase.functions.invoke('gemini-image-editing', {
-        body: {
-          imageData: base64,
-          mimeType: blob.type,
-          prompt: enhancedPrompt,
-          temperature: 0.8
-        }
+      const editResult = await editResponse.json();
+
+      if (!editResult.success) {
+        throw new Error(editResult.error || 'فشل في تعديل الصورة');
+      }
+
+      // رفع الصورة المعدلة إلى imgbb
+      console.log('📤 رفع الصورة المعدلة إلى imgbb...');
+      const uploadedUrl = await uploadToImgBB(editResult.imageData);
+      
+      console.log('✅ تم تعديل ورفع الصورة بنجاح');
+      onEditComplete(uploadedUrl);
+      toast({ 
+        title: 'نجح', 
+        description: 'تم تعديل الصورة ورفعها بنجاح!', 
+        variant: 'default' 
       });
-
-      if (editError) {
-        console.error('❌ خطأ في تعديل الصورة:', editError);
-        
-        // في حالة الفشل، استخدم الصورة الأصلية
-        onEditComplete(imageUrl);
-        toast({ 
-          title: 'تنبيه', 
-          description: 'تم تخطي تعديل الصورة - سيتم استخدام الصورة الأصلية',
-          variant: 'default'
-        });
-        return;
-      }
-
-      if (editResult?.editedImage) {
-        console.log('✅ تم تعديل الصورة بنجاح');
-        onEditComplete(editResult.editedImage);
-        toast({ title: 'نجح', description: 'تم تعديل الصورة بنجاح!', variant: 'default' });
-      } else {
-        console.warn('⚠️ لم يتم إرجاع صورة معدلة، استخدام الصورة الأصلية');
-        onEditComplete(imageUrl);
-        toast({ 
-          title: 'تنبيه', 
-          description: 'تم استخدام الصورة الأصلية',
-          variant: 'default'
-        });
-      }
       
     } catch (error) {
       console.error('❌ خطأ في تعديل الصورة:', error);
@@ -147,7 +122,7 @@ export const GeminiImageEditor: React.FC<GeminiImageEditorProps> = ({
 
   const resetEditor = () => {
     setPrompt('');
-    setImageStyle('professional');
+    setImageStyle('realistic');
   };
 
   return (
