@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { createGeminiKeyManager } from '@/utils/apiKeyRotationManager';
+import { useCreditsManager } from './useCreditsManager';
 
 interface ImageAnalysisParams {
   imageData: string; // base64 string
@@ -24,6 +25,7 @@ export const useGeminiImageAnalysis = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<ImageAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { checkCredits, consumeCredits } = useCreditsManager();
 
   // تحليل الصورة باستخدام Gemini Vision API
   const analyzeImage = useCallback(async (params: ImageAnalysisParams): Promise<ImageAnalysisResult | null> => {
@@ -31,6 +33,18 @@ export const useGeminiImageAnalysis = () => {
     setError(null);
     
     try {
+      // التحقق من الكريدت أولاً
+      console.log('🔍 التحقق من الكريدت المتاح...');
+      const creditsInfo = await checkCredits();
+      
+      if (!creditsInfo || !creditsInfo.available) {
+        const errorMsg = 'لا يوجد كريدت كافي لتحليل الصورة';
+        setError(errorMsg);
+        toast.error(errorMsg);
+        return null;
+      }
+
+      console.log(`💳 كريدت متاح: ${creditsInfo.remaining}/${creditsInfo.total}`);
       console.log('👁️ بدء تحليل الصورة باستخدام Gemini Vision...');
       
       // إنشاء مدير دوران المفاتيح
@@ -114,6 +128,12 @@ export const useGeminiImageAnalysis = () => {
 
       // تحليل النص وتقسيمه إلى أقسام
       const result = parseAnalysisResponse(analysisText);
+      
+      // خصم الكريدت بعد نجاح التحليل
+      const creditConsumed = await consumeCredits(2); // خصم 2 كريدت لتحليل الصورة
+      if (!creditConsumed) {
+        console.warn('⚠️ فشل في خصم الكريدت لكن التحليل تم بنجاح');
+      }
       
       setAnalysisResult(result);
       console.log('✅ تم تحليل الصورة بنجاح باستخدام Gemini Vision');
