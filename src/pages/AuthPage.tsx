@@ -34,6 +34,40 @@ const AuthPage = () => {
     checkAuth();
   }, [navigate]);
 
+  // دخول المطور المباشر (للتطوير فقط)
+  const handleDevLogin = async () => {
+    try {
+      setLoading(true);
+      
+      // إنشاء بيانات تجريبية للمطور
+      const devData = {
+        facebook_user_token: 'DEV_TOKEN_' + Date.now(),
+        facebook_selected_page: 'dev_page_123',
+        facebook_pages: JSON.stringify([{
+          id: 'dev_page_123',
+          name: 'صفحة المطور التجريبية',
+          access_token: 'DEV_PAGE_TOKEN_' + Date.now()
+        }]),
+        facebook_user_id: 'dev_user_' + Date.now(),
+        facebook_user_name: 'مطور',
+        dev_mode: 'true'
+      };
+      
+      // حفظ البيانات في localStorage
+      Object.entries(devData).forEach(([key, value]) => {
+        localStorage.setItem(key, value);
+      });
+      
+      toast.success('تم الدخول كمطور بنجاح!');
+      navigate('/');
+    } catch (error) {
+      console.error('Dev login error:', error);
+      toast.error('خطأ في دخول المطور');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // تسجيل الدخول عبر Gmail OAuth
   const handleGoogleOAuth = async () => {
     try {
@@ -205,6 +239,23 @@ const AuthPage = () => {
                 onGoogleLogin={handleGoogleOAuth}
                 loading={loading}
               />
+            </div>
+            
+            {/* زر دخول المطور */}
+            <div className="mb-6 pt-4 border-t border-border/50">
+              <button
+                onClick={handleDevLogin}
+                disabled={loading}
+                className="w-full py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                دخول المطور (للتطوير فقط)
+              </button>
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                للمطورين فقط - يتم تجاوز المصادقة
+              </p>
             </div>
             
             {/* معلومات إضافية */}
